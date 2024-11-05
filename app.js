@@ -2,7 +2,6 @@
 const express = require('express');
 const mysql = require('mysql2');
 const bcrypt = require('bcryptjs');
-const bodyParser = require('body-parser');
 const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
@@ -20,8 +19,8 @@ app.use(cors({
 }));
 
 // Middleware para parsear cuerpos de solicitudes
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Servir archivos estáticos desde la carpeta 'uploads'
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -99,6 +98,11 @@ db.connect((err) => {
             else console.log("Tabla de productos verificada/creada.");
         });
     }
+});
+
+// Ruta de salud para verificar que el servidor está funcionando
+app.get('/', (req, res) => {
+    res.send('Servidor Backend de Venados Bakery & Coffee está funcionando correctamente.');
 });
 
 // Ruta de inicio de sesión
@@ -270,12 +274,8 @@ app.delete('/delete-product/:id', (req, res) => {
     });
 });
 
-// Ruta de salud para verificar que el servidor está funcionando y CORS está configurado correctamente
-app.options('*', cors()); // Manejar solicitudes preflight
-
-app.get('/', (req, res) => {
-    res.send('Servidor Backend de Venados Bakery & Coffee está funcionando correctamente.');
-});
+// Manejar solicitudes preflight (OPTIONS) para todas las rutas
+app.options('*', cors());
 
 // Iniciar el servidor
 const PORT = process.env.PORT || 3000;
