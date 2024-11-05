@@ -270,6 +270,13 @@ app.delete('/delete-product/:id', (req, res) => {
     });
 });
 
+// Ruta de salud para verificar que el servidor está funcionando y CORS está configurado correctamente
+app.options('*', cors()); // Manejar solicitudes preflight
+
+app.get('/', (req, res) => {
+    res.send('Servidor Backend de Venados Bakery & Coffee está funcionando correctamente.');
+});
+
 // Iniciar el servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
