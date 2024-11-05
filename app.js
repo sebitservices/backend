@@ -11,19 +11,20 @@ app.use(bodyParser.json());
 app.use(cors());
 app.use('/uploads', express.static('uploads')); // Servir archivos estáticos desde la carpeta 'uploads'
 
-// Configuración de la base de datos MySQL
+// Configuración de la base de datos MySQL en Hostinger
 const db = mysql.createConnection({
-    host: '127.0.0.1',
-    user: 'u498125654_adminflow',
-    password: '@ttom2121S',
-    database: 'u498125654_adminflow'
+    host: 'srv1526.hstgr.io',  // Reemplaza con tu host remoto
+    user: 'u498125654_adminflow',  // Reemplaza con el usuario de tu base de datos
+    password: '@ttom2121S',  // Reemplaza con la contraseña de tu base de datos
+    database: 'u498125654_adminflow'  // Reemplaza con el nombre de tu base de datos
 });
 
+// Conexión a la base de datos
 db.connect((err) => {
     if (err) {
-        console.error("Error al conectar con la base de datos", err.message);
+        console.error("Error al conectar con la base de datos:", err.message);
     } else {
-        console.log("Conectado a la base de datos MySQL");
+        console.log("Conectado a la base de datos MySQL en Hostinger");
 
         // Crear tabla de usuarios si no existe
         const usersTable = `CREATE TABLE IF NOT EXISTS users (
@@ -35,13 +36,13 @@ db.connect((err) => {
             if (createErr) {
                 console.error("Error al crear la tabla de usuarios:", createErr.message);
             } else {
-                // Verificar si el usuario ya existe antes de insertarlo
+                // Verificar si el usuario "admin" ya existe antes de insertarlo
                 const hashedPassword = bcrypt.hashSync("admin123", 10);
                 db.query(`SELECT * FROM users WHERE username = ?`, ["admin"], (err, result) => {
                     if (result.length === 0) {
                         db.query(`INSERT INTO users (username, password) VALUES (?, ?)`, ["admin", hashedPassword], (insertErr) => {
                             if (insertErr) {
-                                console.error("Error al insertar el usuario:", insertErr.message);
+                                console.error("Error al insertar el usuario administrador:", insertErr.message);
                             } else {
                                 console.log("Usuario administrador creado exitosamente.");
                             }
@@ -64,27 +65,18 @@ const storage = multer.diskStorage({
         cb(null, file.originalname); // Guardar con el nombre original del archivo
     }
 });
-
 const upload = multer({ storage: storage });
 
 // Ruta de inicio de sesión
 app.post('/login', (req, res) => {
     const { username, password } = req.body;
-
     db.query(`SELECT * FROM users WHERE username = ?`, [username], (err, results) => {
-        if (err) {
-            return res.status(500).json({ message: "Error de servidor" });
-        }
-        if (results.length === 0) {
-            return res.status(400).json({ message: "Usuario no encontrado" });
-        }
+        if (err) return res.status(500).json({ message: "Error de servidor" });
+        if (results.length === 0) return res.status(400).json({ message: "Usuario no encontrado" });
 
         const user = results[0];
-        // Verificar la contraseña
         const isPasswordValid = bcrypt.compareSync(password, user.password);
-        if (!isPasswordValid) {
-            return res.status(400).json({ message: "Contraseña incorrecta" });
-        }
+        if (!isPasswordValid) return res.status(400).json({ message: "Contraseña incorrecta" });
 
         res.json({ message: "Inicio de sesión correcto" });
     });
@@ -93,28 +85,17 @@ app.post('/login', (req, res) => {
 // Ruta para cambiar la contraseña
 app.post('/change-password', (req, res) => {
     const { username, currentPassword, newPassword } = req.body;
-
     db.query(`SELECT * FROM users WHERE username = ?`, [username], (err, results) => {
-        if (err) {
-            return res.status(500).json({ message: "Error de servidor" });
-        }
-        if (results.length === 0) {
-            return res.status(400).json({ message: "Usuario no encontrado" });
-        }
+        if (err) return res.status(500).json({ message: "Error de servidor" });
+        if (results.length === 0) return res.status(400).json({ message: "Usuario no encontrado" });
 
         const user = results[0];
-        // Verificar la contraseña actual
         const isPasswordValid = bcrypt.compareSync(currentPassword, user.password);
-        if (!isPasswordValid) {
-            return res.status(400).json({ message: "Contraseña actual incorrecta" });
-        }
+        if (!isPasswordValid) return res.status(400).json({ message: "Contraseña actual incorrecta" });
 
-        // Actualizar la contraseña
         const hashedNewPassword = bcrypt.hashSync(newPassword, 10);
         db.query(`UPDATE users SET password = ? WHERE username = ?`, [hashedNewPassword, username], (updateErr) => {
-            if (updateErr) {
-                return res.status(500).json({ message: "Error al actualizar la contraseña" });
-            }
+            if (updateErr) return res.status(500).json({ message: "Error al actualizar la contraseña" });
             res.json({ message: "Contraseña cambiada correctamente" });
         });
     });
@@ -130,26 +111,18 @@ const productsTable = `CREATE TABLE IF NOT EXISTS products (
     image VARCHAR(255) NOT NULL
 )`;
 db.query(productsTable, (err) => {
-    if (err) {
-        console.error("Error al crear la tabla de productos:", err.message);
-    }
+    if (err) console.error("Error al crear la tabla de productos:", err.message);
 });
 
-// Ruta para agregar un producto (cargar imagen)
+// Ruta para agregar un producto (subida de imagen)
 app.post('/add-product', upload.single('productImage'), (req, res) => {
     const { name, serves, description, price } = req.body;
-
-    if (!req.file) {
-        return res.status(400).json({ message: 'No se ha subido ninguna imagen.' });
-    }
+    if (!req.file) return res.status(400).json({ message: 'No se ha subido ninguna imagen.' });
 
     const image = req.file.filename;
     const sql = 'INSERT INTO products (name, serves, description, price, image) VALUES (?, ?, ?, ?, ?)';
-
     db.query(sql, [name, serves, description, price, image], (err, result) => {
-        if (err) {
-            return res.status(500).json({ message: 'Error al agregar el producto.', error: err.message });
-        }
+        if (err) return res.status(500).json({ message: 'Error al agregar el producto.', error: err.message });
         res.status(201).json({ id: result.insertId, message: 'Producto agregado exitosamente.' });
     });
 });
@@ -157,9 +130,7 @@ app.post('/add-product', upload.single('productImage'), (req, res) => {
 // Ruta para obtener todos los productos
 app.get('/products', (req, res) => {
     db.query('SELECT * FROM products', (err, rows) => {
-        if (err) {
-            return res.status(400).json({ message: 'Error al obtener productos.' });
-        }
+        if (err) return res.status(400).json({ message: 'Error al obtener productos.' });
         res.json(rows);
     });
 });
@@ -182,9 +153,7 @@ app.put('/edit-product/:id', upload.single('productImage'), (req, res) => {
     params.push(id);
 
     db.query(sql, params, (err) => {
-        if (err) {
-            return res.status(500).json({ message: 'Error al actualizar el producto.', error: err.message });
-        }
+        if (err) return res.status(500).json({ message: 'Error al actualizar el producto.', error: err.message });
         res.json({ message: 'Producto actualizado exitosamente.' });
     });
 });
@@ -193,11 +162,8 @@ app.put('/edit-product/:id', upload.single('productImage'), (req, res) => {
 app.delete('/delete-product/:id', (req, res) => {
     const { id } = req.params;
     const sql = 'DELETE FROM products WHERE id = ?';
-
     db.query(sql, [id], (err) => {
-        if (err) {
-            return res.status(500).json({ message: 'Error al eliminar el producto.', error: err.message });
-        }
+        if (err) return res.status(500).json({ message: 'Error al eliminar el producto.', error: err.message });
         res.json({ message: 'Producto eliminado exitosamente.' });
     });
 });
