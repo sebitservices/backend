@@ -6,7 +6,6 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
-require('dotenv').config(); // Cargar variables de entorno desde un archivo .env
 
 const app = express();
 
@@ -15,10 +14,10 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 // Configuración de CORS
-const allowedOrigins = ['https://admintechflow.com/']; // Reemplaza con tu dominio frontend
+const allowedOrigins = ['https://admintechflow.com']; // Reemplaza con tu dominio frontend
 app.use(cors({
     origin: allowedOrigins,
-    optionsSuccessStatus: 200
+    credentials: true
 }));
 
 // Servir archivos estáticos desde la carpeta 'uploads'
