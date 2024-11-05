@@ -13,7 +13,7 @@ app.use('/uploads', express.static('uploads')); // Servir archivos estáticos de
 
 // Configuración de la base de datos MySQL
 const db = mysql.createConnection({
-    host: ' 127.0.0.1:3306',
+    host: '127.0.0.1',
     user: 'u498125654_adminflow',
     password: '@ttom2121S',
     database: 'u498125654_adminflow'
