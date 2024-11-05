@@ -9,16 +9,19 @@ const path = require('path');
 
 const app = express();
 
-// Middleware
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+// Configuración de CORS para permitir solicitudes desde 'https://admintechflow.com'
+const allowedOrigins = ['https://admintechflow.com'];
 
-// Configuración de CORS
-const allowedOrigins = ['https://admintechflow.com']; // Reemplaza con tu dominio frontend
 app.use(cors({
     origin: allowedOrigins,
-    credentials: true
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true // Si necesitas enviar cookies o autenticación
 }));
+
+// Middleware para parsear cuerpos de solicitudes
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
 // Servir archivos estáticos desde la carpeta 'uploads'
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
