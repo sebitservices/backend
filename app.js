@@ -1,5 +1,5 @@
 const express = require('express');
-const sqlite3 = require('sqlite3').verbose();
+const mysql = require('mysql2');
 const bcrypt = require('bcryptjs');
 const bodyParser = require('body-parser');
 const cors = require('cors');
@@ -11,27 +11,35 @@ app.use(bodyParser.json());
 app.use(cors());
 app.use('/uploads', express.static('uploads')); // Servir archivos estáticos desde la carpeta 'uploads'
 
-// Configurar la base de datos
-const db = new sqlite3.Database('./database.sqlite', (err) => {
+// Configuración de la base de datos MySQL
+const db = mysql.createConnection({
+    host: ' 127.0.0.1:3306',
+    user: 'u498125654_adminflow',
+    password: '@ttom2121S',
+    database: 'u498125654_adminflow'
+});
+
+db.connect((err) => {
     if (err) {
         console.error("Error al conectar con la base de datos", err.message);
     } else {
-        console.log("Conectado a la base de datos SQLite");
+        console.log("Conectado a la base de datos MySQL");
 
         // Crear tabla de usuarios si no existe
-        db.run(`CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT NOT NULL UNIQUE,
-            password TEXT NOT NULL
-        )`, (createErr) => {
+        const usersTable = `CREATE TABLE IF NOT EXISTS users (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            username VARCHAR(255) NOT NULL UNIQUE,
+            password VARCHAR(255) NOT NULL
+        )`;
+        db.query(usersTable, (createErr) => {
             if (createErr) {
                 console.error("Error al crear la tabla de usuarios:", createErr.message);
             } else {
                 // Verificar si el usuario ya existe antes de insertarlo
                 const hashedPassword = bcrypt.hashSync("admin123", 10);
-                db.get(`SELECT * FROM users WHERE username = ?`, ["admin"], (err, row) => {
-                    if (!row) {
-                        db.run(`INSERT INTO users (username, password) VALUES (?, ?)`, ["admin", hashedPassword], (insertErr) => {
+                db.query(`SELECT * FROM users WHERE username = ?`, ["admin"], (err, result) => {
+                    if (result.length === 0) {
+                        db.query(`INSERT INTO users (username, password) VALUES (?, ?)`, ["admin", hashedPassword], (insertErr) => {
                             if (insertErr) {
                                 console.error("Error al insertar el usuario:", insertErr.message);
                             } else {
@@ -63,14 +71,15 @@ const upload = multer({ storage: storage });
 app.post('/login', (req, res) => {
     const { username, password } = req.body;
 
-    db.get(`SELECT * FROM users WHERE username = ?`, [username], (err, user) => {
+    db.query(`SELECT * FROM users WHERE username = ?`, [username], (err, results) => {
         if (err) {
             return res.status(500).json({ message: "Error de servidor" });
         }
-        if (!user) {
+        if (results.length === 0) {
             return res.status(400).json({ message: "Usuario no encontrado" });
         }
 
+        const user = results[0];
         // Verificar la contraseña
         const isPasswordValid = bcrypt.compareSync(password, user.password);
         if (!isPasswordValid) {
@@ -81,18 +90,19 @@ app.post('/login', (req, res) => {
     });
 });
 
-// Rutas para cambiar la contraseña
+// Ruta para cambiar la contraseña
 app.post('/change-password', (req, res) => {
     const { username, currentPassword, newPassword } = req.body;
 
-    db.get(`SELECT * FROM users WHERE username = ?`, [username], (err, user) => {
+    db.query(`SELECT * FROM users WHERE username = ?`, [username], (err, results) => {
         if (err) {
             return res.status(500).json({ message: "Error de servidor" });
         }
-        if (!user) {
+        if (results.length === 0) {
             return res.status(400).json({ message: "Usuario no encontrado" });
         }
 
+        const user = results[0];
         // Verificar la contraseña actual
         const isPasswordValid = bcrypt.compareSync(currentPassword, user.password);
         if (!isPasswordValid) {
@@ -101,7 +111,7 @@ app.post('/change-password', (req, res) => {
 
         // Actualizar la contraseña
         const hashedNewPassword = bcrypt.hashSync(newPassword, 10);
-        db.run(`UPDATE users SET password = ? WHERE username = ?`, [hashedNewPassword, username], function(updateErr) {
+        db.query(`UPDATE users SET password = ? WHERE username = ?`, [hashedNewPassword, username], (updateErr) => {
             if (updateErr) {
                 return res.status(500).json({ message: "Error al actualizar la contraseña" });
             }
@@ -111,38 +121,42 @@ app.post('/change-password', (req, res) => {
 });
 
 // Crear la tabla de productos si no existe
-db.run(`CREATE TABLE IF NOT EXISTS products (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    serves INTEGER NOT NULL,
+const productsTable = `CREATE TABLE IF NOT EXISTS products (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    serves INT NOT NULL,
     description TEXT NOT NULL,
-    price REAL NOT NULL,
-    image TEXT NOT NULL
-)`);
+    price DECIMAL(10, 2) NOT NULL,
+    image VARCHAR(255) NOT NULL
+)`;
+db.query(productsTable, (err) => {
+    if (err) {
+        console.error("Error al crear la tabla de productos:", err.message);
+    }
+});
 
 // Ruta para agregar un producto (cargar imagen)
 app.post('/add-product', upload.single('productImage'), (req, res) => {
     const { name, serves, description, price } = req.body;
 
-    // Verifica si se ha subido un archivo
     if (!req.file) {
         return res.status(400).json({ message: 'No se ha subido ninguna imagen.' });
     }
 
-    const image = req.file.filename; // Nombre del archivo subido
+    const image = req.file.filename;
     const sql = 'INSERT INTO products (name, serves, description, price, image) VALUES (?, ?, ?, ?, ?)';
 
-    db.run(sql, [name, serves, description, price, image], function(err) {
+    db.query(sql, [name, serves, description, price, image], (err, result) => {
         if (err) {
             return res.status(500).json({ message: 'Error al agregar el producto.', error: err.message });
         }
-        res.status(201).json({ id: this.lastID, message: 'Producto agregado exitosamente.' });
+        res.status(201).json({ id: result.insertId, message: 'Producto agregado exitosamente.' });
     });
 });
 
 // Ruta para obtener todos los productos
 app.get('/products', (req, res) => {
-    db.all('SELECT * FROM products', [], (err, rows) => {
+    db.query('SELECT * FROM products', (err, rows) => {
         if (err) {
             return res.status(400).json({ message: 'Error al obtener productos.' });
         }
@@ -156,7 +170,6 @@ app.put('/edit-product/:id', upload.single('productImage'), (req, res) => {
     const { name, serves, description, price } = req.body;
     const image = req.file ? req.file.filename : null;
 
-    // Construir el query dinámico
     let sql = 'UPDATE products SET name = ?, serves = ?, description = ?, price = ?';
     const params = [name, serves, description, price];
 
@@ -168,7 +181,7 @@ app.put('/edit-product/:id', upload.single('productImage'), (req, res) => {
     sql += ' WHERE id = ?';
     params.push(id);
 
-    db.run(sql, params, function(err) {
+    db.query(sql, params, (err) => {
         if (err) {
             return res.status(500).json({ message: 'Error al actualizar el producto.', error: err.message });
         }
@@ -181,7 +194,7 @@ app.delete('/delete-product/:id', (req, res) => {
     const { id } = req.params;
     const sql = 'DELETE FROM products WHERE id = ?';
 
-    db.run(sql, [id], function(err) {
+    db.query(sql, [id], (err) => {
         if (err) {
             return res.status(500).json({ message: 'Error al eliminar el producto.', error: err.message });
         }
@@ -191,7 +204,6 @@ app.delete('/delete-product/:id', (req, res) => {
 
 // Iniciar el servidor
 const PORT = process.env.PORT || 3000;
-
 app.listen(PORT, () => {
     console.log(`Servidor iniciado en http://localhost:${PORT}`);
 });
